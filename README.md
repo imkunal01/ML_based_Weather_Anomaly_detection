@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.svg" alt="Weather Anomaly Detector" width="100%"/>
+<img src="ASSETS/banner.svg" alt="Weather Anomaly Detector" width="100%"/>
 
 <br/>
 
@@ -31,7 +31,7 @@ This project does it automatically:
 4. Tests the model against a simple **z-score baseline** on data with deliberately injected faults, so we know whether the ML is actually pulling its weight.
 
 <div align="center">
-<img src="assets/anomaly-demo.svg" alt="Animated anomaly demo chart" width="100%"/>
+<img src="ASSETS/anomaly-demo.svg" alt="Animated anomaly demo chart" width="100%"/>
 <sub>Illustrative demo data. Your real chart appears on the dashboard after you upload a file.</sub>
 </div>
 
@@ -40,7 +40,7 @@ This project does it automatically:
 ## ⚙️ How it works
 
 <div align="center">
-<img src="assets/pipeline.svg" alt="Animated pipeline" width="100%"/>
+<img src="ASSETS/pipeline.svg" alt="Animated pipeline" width="100%"/>
 </div>
 
 ```mermaid
@@ -88,7 +88,7 @@ sequenceDiagram
 We use **Isolation Forest**. The idea is simple and kind of clever: instead of learning what normal looks like and measuring distance from it, it just tries to *isolate* each point with random cuts. Weird points get isolated fast. Normal points take many cuts.
 
 <div align="center">
-<img src="assets/isolation-forest.svg" alt="Isolation Forest intuition animation" width="100%"/>
+<img src="ASSETS/isolation-forest.svg" alt="Isolation Forest intuition animation" width="100%"/>
 </div>
 
 **Why this model for this problem**
