@@ -13,7 +13,7 @@
 
 **Upload a CSV of weather sensor readings. Get back every reading that looks wrong, with a chart and a score for each one.**
 
-[Overview](#-overview) · [How it works](#-how-it-works) · [The model](#-the-model) · [Evaluation](#-evaluation) · [Web app](#-the-web-app) · [Run it](#-getting-started) · [Team](#-team)
+[Overview](#-overview) · [How it works](#-how-it-works) · [The model](#-the-model) · [Evaluation](#-evaluation) · [Web app](#-the-web-app) · [Run it](#-getting-started) · [API Testing](#-ml-microservice--api-testing) · [Team](#-team)
 
 </div>
 
@@ -216,24 +216,26 @@ erDiagram
 
 ```
 weather-anomaly/
-├── ml/                        # model + testing
-│   ├── fetch_data.py          # download data from Open-Meteo
-│   ├── clean.py               # clean + split into history / holdout
-│   ├── ml.py                  # train + predict()
-│   ├── ml_model.joblib        # saved model
+├── ml/                        # Model, API microservice & validation
+│   ├── fetch_data.py          # Download 3 years hourly data from Open-Meteo
+│   ├── clean.py               # Clean + split into history / holdout
+│   ├── ml.py                  # Train Isolation Forest + predict()
+│   ├── api.py                 # FastAPI microservice for standalone deployment
+│   ├── make_sample.py         # Generate sample.csv (first 200 rows of holdout)
+│   ├── verify.py              # Self-check test suite (7 verification checks)
+│   ├── requirements.txt       # Pinned ML dependencies
+│   ├── ml_model.joblib        # Saved trained model + scaler
 │   ├── data/                  # history, holdout, sample, faulty files, results
 │   └── scripts/
-│       ├── inject_faults.py   # makes faulty_sample.csv + labels
+│       ├── inject_faults.py   # Makes faulty_sample.csv + labels
 │       └── evaluate.py        # Isolation Forest vs z-score
 └── aws_anomaly/               # Django project
     ├── manage.py
     ├── requirements.txt
     └── detector/
         ├── models.py          # Reading table
-        ├── views.py           # upload + dashboard
+        ├── views.py           # Upload + dashboard
         ├── urls.py
-        ├── ml.py              # copy of the model code
-        ├── ml_model.joblib    # copy of the saved model
         └── templates/detector/
 ```
 
@@ -241,43 +243,234 @@ weather-anomaly/
 
 ## 🚀 Getting started
 
-**1. Clone and set up**
+### 1. Clone and set up virtual environment
 
 ```bash
 git clone <your-repo-url>
 cd weather-anomaly
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install pandas scikit-learn joblib requests matplotlib django
 ```
 
-> Everyone on the team must use the **same scikit-learn version**. A model saved with one version can warn or break on another. Check yours with `pip show scikit-learn`.
+Activate the virtual environment:
+- **Windows (PowerShell):** `.\venv\Scripts\Activate.ps1`
+- **Windows (cmd):** `venv\Scripts\activate.bat`
+- **macOS / Linux:** `source venv/bin/activate`
 
-**2. Build the data and model** (always from inside `ml/`)
+Install dependencies:
+```bash
+pip install -r ml/requirements.txt fastapi uvicorn matplotlib django
+```
+
+> [!NOTE]
+> Everyone on the team must use the **same scikit-learn version** (`scikit-learn==1.9.1`). A model saved with one version can warn or break on another. Check yours with `pip show scikit-learn`.
+
+---
+
+### 2. Build the dataset & train the model (from inside `ml/`)
 
 ```bash
 cd ml
+
+# Step 1: Download 3 years of hourly weather data from Open-Meteo
 python fetch_data.py
+
+# Step 2: Clean data, filter out impossible values, split history/holdout
 python clean.py
+
+# Step 3: Fit StandardScaler and IsolationForest, save ml_model.joblib
 python ml.py
+
+# Step 4: Generate sample test file (first 200 rows of holdout)
+python make_sample.py
+
+# Step 5: Run automated test suite to verify the pipeline
+python verify.py
 ```
 
-**3. Run the evaluation**
+---
+
+### 3. Run the evaluation benchmarks (optional)
 
 ```bash
 python scripts/inject_faults.py
 python scripts/evaluate.py
 ```
 
-**4. Start the website**
+---
+
+### 4. Start the ML API Microservice
+
+Run the standalone FastAPI server on port `8001`:
 
 ```bash
-cd ../aws_anomaly
+# From inside the ml/ directory:
+uvicorn api:app --host 0.0.0.0 --port 8001 --reload
+```
+
+The ML service will be online at:
+- **Service root:** `http://127.0.0.1:8001/`
+- **Interactive API Documentation:** `http://127.0.0.1:8001/docs`
+- **Prediction Endpoint:** `http://127.0.0.1:8001/predict`
+
+---
+
+### 5. Start the Django website (in a separate terminal)
+
+```bash
+cd aws_anomaly
 python manage.py migrate
 python manage.py runserver
 ```
 
 Open `http://127.0.0.1:8000`, upload `sample.csv`, then `faulty_sample.csv`.
+
+---
+
+## 🔌 ML Microservice & API Testing
+
+The ML model can be run as an independent microservice separate from your web application. This allows your Django app (or any mobile/frontend client) to request real-time anomaly detection via standard HTTP JSON requests.
+
+### Interactive Swagger UI (Browser)
+
+1. Start the API server:
+   ```bash
+   cd ml
+   uvicorn api:app --host 0.0.0.0 --port 8001 --reload
+   ```
+2. Open your browser and navigate to **`http://127.0.0.1:8001/docs`**.
+3. Click on the **`POST /predict`** route $\rightarrow$ **Try it out**.
+4. Paste a sample JSON payload and click **Execute** to see the response directly in the browser.
+
+---
+
+### Testing via Command Line / Terminal
+
+#### Test 1: Single Normal Reading (cURL)
+```bash
+curl -X POST "http://127.0.0.1:8001/predict" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "timestamp": "2026-11-20 12:00:00",
+       "temp": 26.5,
+       "humidity": 65.0,
+       "pressure": 1012.3,
+       "wind": 12.4,
+       "rain": 0.0
+     }'
+```
+
+**Expected Response (`is_anomaly: false`):**
+```json
+{
+  "timestamp": "2026-11-20 12:00:00",
+  "temp": 26.5,
+  "humidity": 65.0,
+  "pressure": 1012.3,
+  "wind": 12.4,
+  "rain": 0.0,
+  "is_anomaly": false,
+  "score": 0.41833169532328607
+}
+```
+
+---
+
+#### Test 2: Injected Fault / Broken Sensor Reading (cURL)
+```bash
+curl -X POST "http://127.0.0.1:8001/predict" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "timestamp": "2026-11-20 12:00:00",
+       "temp": 85.0,
+       "humidity": 150.0,
+       "pressure": 0.0,
+       "wind": 1.4,
+       "rain": 0.0
+     }'
+```
+
+**Expected Response (`is_anomaly: true`, high score):**
+```json
+{
+  "timestamp": "2026-11-20 12:00:00",
+  "temp": 85.0,
+  "humidity": 150.0,
+  "pressure": 0.0,
+  "wind": 1.4,
+  "rain": 0.0,
+  "is_anomaly": true,
+  "score": 0.6038596226644785
+}
+```
+
+---
+
+#### Test 3: PowerShell (Windows)
+```powershell
+$body = @{
+    timestamp = "2026-11-20 12:00:00"
+    temp = 85.0
+    humidity = 150.0
+    pressure = 0.0
+    wind = 1.4
+    rain = 0.0
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/predict" -Method Post -ContentType "application/json" -Body $body
+```
+
+---
+
+#### Test 4: Batch of Readings (Multiple Sensors / Timeseries)
+You can pass an array of readings to check multiple records simultaneously:
+
+```bash
+curl -X POST "http://127.0.0.1:8001/predict" \
+     -H "Content-Type: application/json" \
+     -d '[
+       {
+         "timestamp": "2026-11-20 12:00:00",
+         "temp": 26.5,
+         "humidity": 65.0,
+         "pressure": 1012.3,
+         "wind": 12.4,
+         "rain": 0.0
+       },
+       {
+         "timestamp": "2026-11-20 13:00:00",
+         "temp": 85.0,
+         "humidity": 150.0,
+         "pressure": 0.0,
+         "wind": 1.4,
+         "rain": 0.0
+       }
+     ]'
+```
+
+---
+
+### Calling the ML API from Django
+
+In your Django app (e.g. `detector/services.py` or `views.py`), query the microservice with the standard `requests` library:
+
+```python
+import requests
+
+ML_API_URL = "http://127.0.0.1:8001/predict"
+
+def check_weather_anomalies(readings_list: list[dict]) -> list[dict]:
+    """
+    Sends weather readings to the ML microservice and returns predictions.
+    Each item in readings_list must contain: timestamp, temp, humidity, pressure, wind, rain.
+    """
+    try:
+        response = requests.post(ML_API_URL, json=readings_list, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as err:
+        print(f"Error calling ML microservice: {err}")
+        return []
+```
 
 ---
 
