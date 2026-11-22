@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
-from django.db.models import Avg, Max, Min, Count
+from django.http import JsonResponse
+from django.db.models import Avg
+from django.db.utils import OperationalError
 from pathlib import Path
 import json
 import pandas as pd
@@ -15,8 +16,16 @@ REPO_DIR = Path(__file__).resolve().parent.parent.parent
 
 def dashboard_view(request):
     """Main interactive dashboard displaying weather analytics, anomaly scores, and charts."""
-    readings = WeatherReading.objects.all()
-    total_count = readings.count()
+    try:
+        readings = WeatherReading.objects.all()
+        total_count = readings.count()
+    except OperationalError:
+        # Auto-run migrate if table doesn't exist yet on Render
+        from django.core.management import call_command
+        call_command('migrate', interactive=False)
+        readings = WeatherReading.objects.all()
+        total_count = readings.count()
+
     anomaly_count = readings.filter(is_anomaly=True).count()
     normal_count = total_count - anomaly_count
     anomaly_percent = round((anomaly_count / total_count * 100), 2) if total_count > 0 else 0.0
@@ -81,19 +90,17 @@ def upload_view(request):
             source_name = "Standard Sample (ml/data/sample.csv)"
 
         elif action == 'load_faulty':
-            # Create on-the-fly injected faulty sample from holdout if not saved
             sample_path = REPO_DIR / 'ml' / 'data' / 'sample.csv'
             if not sample_path.exists():
                 messages.error(request, "Holdout data not found.")
                 return redirect('upload')
             df = pd.read_csv(sample_path).copy()
-            # Deliberately inject anomalies into 15 records
             if len(df) >= 30:
-                df.loc[5, 'temp'] = 84.5  # Extreme heat spike
-                df.loc[12, 'pressure'] = 0.0  # Sensor failure
-                df.loc[22, 'humidity'] = 145.0  # Impossible humidity
-                df.loc[35, 'temp'] = -45.0  # Impossible freeze
-                df.loc[48, 'wind'] = 195.0  # Extreme hurricane wind
+                df.loc[5, 'temp'] = 84.5
+                df.loc[12, 'pressure'] = 0.0
+                df.loc[22, 'humidity'] = 145.0
+                df.loc[35, 'temp'] = -45.0
+                df.loc[48, 'wind'] = 195.0
                 df.loc[60, 'temp'] = 79.0
                 df.loc[75, 'pressure'] = 520.0
                 df.loc[90, 'humidity'] = 160.0
@@ -118,7 +125,6 @@ def upload_view(request):
                 messages.error(request, f"Could not read CSV file: {str(e)}")
                 return redirect('upload')
 
-        # Validation of uploaded DataFrame
         if df is None or df.empty:
             messages.error(request, "The uploaded dataset is empty.")
             return redirect('upload')
@@ -128,8 +134,6 @@ def upload_view(request):
             messages.error(request, f"Missing required columns in dataset: {', '.join(missing_cols)}. Expected: {', '.join(REQUIRED_COLUMNS)}")
             return redirect('upload')
 
-        # Clean NaNs or invalid types
-        original_len = len(df)
         df = df.dropna(subset=REQUIRED_COLUMNS)
         if len(df) == 0:
             messages.error(request, "No usable rows left after dropping empty values.")
@@ -139,7 +143,6 @@ def upload_view(request):
             df[f] = pd.to_numeric(df[f], errors='coerce')
         df = df.dropna(subset=FEATURES)
 
-        # Run Prediction using selected ML model
         model_display_name = "LSTM Sequence Detector" if model_choice == "lstm" else "Isolation Forest"
         try:
             result_df = run_prediction(df, model_choice=model_choice)
@@ -147,7 +150,6 @@ def upload_view(request):
             messages.error(request, f"Error running ML Anomaly Detection model: {str(e)}")
             return redirect('upload')
 
-        # Clear previous session readings and bulk store the new readings
         WeatherReading.objects.all().delete()
 
         reading_objects = [
@@ -178,7 +180,7 @@ def upload_view(request):
 
 
 def single_predict_view(request):
-    """Allows manual single-reading testing for quick live demonstration during exams/presentations."""
+    """Allows manual single-reading testing for quick live demonstration."""
     prediction_result = None
     if request.method == 'POST':
         try:

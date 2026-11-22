@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: weather-anomaly-detector
+    runtime: python
+    rootDir: weather_web
+    buildCommand: pip install -r ../ml/requirements.txt django gunicorn
+    startCommand: python manage.py migrate && gunicorn weather_web.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
