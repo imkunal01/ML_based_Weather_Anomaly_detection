@@ -1,0 +1,114 @@
+{% extends 'detector/base.html' %}
+
+{% block title %}Upload Dataset - Weather Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+        
+        <div class="mb-4 text-center">
+            <h2 class="fw-bold text-dark">Analyze Weather Sensor Dataset</h2>
+            <p class="text-muted">Upload custom telemetry CSV files or select pre-configured test benchmarks</p>
+        </div>
+
+        <!-- Main Upload Card -->
+        <div class="modern-card p-4 p-md-5 mb-4">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="upload">
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark fs-5">
+                        <i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>Upload CSV File
+                    </label>
+                    <p class="text-muted small">
+                        The CSV should include the following telemetry columns:
+                        <code>timestamp</code>, <code>temp</code>, <code>humidity</code>, <code>pressure</code>, <code>wind</code>, <code>rain</code>
+                    </p>
+                    <input class="form-control form-control-lg border-2" type="file" name="csv_file" accept=".csv" required>
+                </div>
+
+                <!-- Model Selection Choice -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">
+                        <i class="bi bi-cpu-fill me-2 text-primary"></i>Choose Detection Algorithm
+                    </label>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check p-3 border rounded-3 h-100 bg-light">
+                                <input class="form-check-input" type="radio" name="model_choice" id="modelIForest" value="iforest" checked>
+                                <label class="form-check-label ms-2" for="modelIForest">
+                                    <strong class="d-block text-dark">Isolation Forest (Default)</strong>
+                                    <small class="text-muted">Unsupervised ensemble of 200 isolation trees trained on 3 years historical weather records.</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check p-3 border rounded-3 h-100 bg-light">
+                                <input class="form-check-input" type="radio" name="model_choice" id="modelLSTM" value="lstm">
+                                <label class="form-check-label ms-2" for="modelLSTM">
+                                    <strong class="d-block text-dark">LSTM Sequence Baseline</strong>
+                                    <small class="text-muted">Temporal sequence analysis examining rolling variance, gradients, and temporal drift.</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-modern-primary py-3 fs-5">
+                        <i class="bi bi-lightning-charge-fill me-2"></i>Run Anomaly Detection Pipeline
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Quick Demo Datasets for College Presentation -->
+        <div class="modern-card p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-magic me-2 text-warning"></i>Instant Demo Datasets (One-Click Testing)</h5>
+            <p class="text-muted small">
+                Perfect for classroom presentations or quick evaluation without needing to manually upload files:
+            </p>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="p-3 border rounded-3 bg-white h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle mb-2">Clean Holdout Data</span>
+                            <h6 class="fw-bold mb-1">Standard Station Telemetry (sample.csv)</h6>
+                            <p class="text-muted small mb-3">200 real sequential readings from Open-Meteo Automatic Weather Station. Mostly normal with low anomaly count.</p>
+                        </div>
+                        <form method="post" action="{% url 'upload' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="load_sample">
+                            <input type="hidden" name="model_choice" value="iforest">
+                            <button type="submit" class="btn btn-sm btn-outline-success w-100 py-2">
+                                <i class="bi bi-play-fill me-1"></i>Load Clean Sample
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="p-3 border rounded-3 bg-white h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle mb-2">Injected Faults</span>
+                            <h6 class="fw-bold mb-1">Simulated Sensor Outliers (faulty_sample)</h6>
+                            <p class="text-muted small mb-3">Simulates sensor breakdowns: temperature spikes (85°C), zero pressure readings, humidity of 150%, and storm gusts.</p>
+                        </div>
+                        <form method="post" action="{% url 'upload' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="load_faulty">
+                            <input type="hidden" name="model_choice" value="iforest">
+                            <button type="submit" class="btn btn-sm btn-outline-danger w-100 py-2">
+                                <i class="bi bi-bug-fill me-1"></i>Load Sensor Faults Demo
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

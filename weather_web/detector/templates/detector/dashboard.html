@@ -1,0 +1,429 @@
+{% extends 'detector/base.html' %}
+
+{% block title %}Dashboard - Weather Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1 text-dark">Real-Time Anomaly Detection Dashboard</h2>
+        <p class="text-muted mb-0">Automatic Weather Station (AWS) sensor monitoring & anomaly scoring</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center mt-3 mt-md-0">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill">
+            <i class="bi bi-cpu me-1"></i> Active Model: <strong>{{ current_model }}</strong>
+        </span>
+        <a href="{% url 'upload' %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+            <i class="bi bi-upload me-1"></i> Change Dataset
+        </a>
+    </div>
+</div>
+
+<!-- Key Stat Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="modern-card stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="stat-label">Total Readings</span>
+                <div class="stat-icon bg-primary-subtle text-primary">
+                    <i class="bi bi-database"></i>
+                </div>
+            </div>
+            <div class="stat-val text-dark">{{ total_count }}</div>
+            <div class="small text-muted mt-1"><i class="bi bi-clock me-1"></i>Hourly AWS telemetry</div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="modern-card stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="stat-label">Anomalies Detected</span>
+                <div class="stat-icon bg-danger-subtle text-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+            </div>
+            <div class="stat-val text-danger">{{ anomaly_count }}</div>
+            <div class="small text-muted mt-1"><span class="fw-semibold text-danger">{{ anomaly_percent }}%</span> of data flagged</div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="modern-card stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="stat-label">Normal Readings</span>
+                <div class="stat-icon bg-success-subtle text-success">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+            </div>
+            <div class="stat-val text-success">{{ normal_count }}</div>
+            <div class="small text-muted mt-1">Within expected parameters</div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="modern-card stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="stat-label">Avg Temperature</span>
+                <div class="stat-icon bg-warning-subtle text-warning">
+                    <i class="bi bi-thermometer-half"></i>
+                </div>
+            </div>
+            <div class="stat-val text-dark">{{ avg_temp }}°C</div>
+            <div class="small text-muted mt-1">Humidity: {{ avg_humidity }}% | Wind: {{ avg_wind }} km/h</div>
+        </div>
+    </div>
+</div>
+
+{% if total_count == 0 %}
+<div class="modern-card p-5 text-center my-4">
+    <div class="mb-3">
+        <i class="bi bi-cloud-arrow-up text-primary" style="font-size: 3.5rem;"></i>
+    </div>
+    <h4 class="fw-bold">No Weather Data Loaded</h4>
+    <p class="text-muted mx-auto" style="max-width: 500px;">
+        Upload a dataset CSV or quickly load our pre-configured evaluation datasets to visualize real-time anomaly detection.
+    </p>
+    <div class="d-flex justify-content-center gap-3 mt-3">
+        <a href="{% url 'upload' %}" class="btn btn-modern-primary">
+            <i class="bi bi-upload me-2"></i>Go to Upload
+        </a>
+        <form method="post" action="{% url 'upload' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="load_sample">
+            <input type="hidden" name="model_choice" value="iforest">
+            <button type="submit" class="btn btn-outline-secondary px-4 py-2 rounded-3">
+                <i class="bi bi-play-circle me-1"></i>Quick Load Sample Data
+            </button>
+        </form>
+    </div>
+</div>
+{% else %}
+
+<!-- Interactive Visualizations -->
+<div class="row g-4 mb-4">
+    <div class="col-12 col-xl-8">
+        <div class="modern-card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold mb-0">Telemetry Sensor Time-Series & Anomaly Flagging</h5>
+                    <small class="text-muted">Outliers isolated by the model are highlighted in vivid red</small>
+                </div>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary active" id="btnShowTemp">Temperature</button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnShowHumidity">Humidity</button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnShowPressure">Pressure</button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnShowWind">Wind</button>
+                </div>
+            </div>
+            <div style="height: 360px; position: relative;">
+                <canvas id="timeSeriesChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-4">
+        <div class="modern-card p-4 h-100 d-flex flex-column">
+            <h5 class="fw-bold mb-1">Anomaly Distribution</h5>
+            <small class="text-muted mb-3">Proportion of regular vs anomalous observations</small>
+            <div style="height: 240px; position: relative;" class="my-auto">
+                <canvas id="doughnutChart"></canvas>
+            </div>
+            <div class="border-top pt-3 mt-2">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>Algorithm in effect:</span>
+                    <strong class="text-dark">{{ current_model }}</strong>
+                </div>
+                <div class="d-flex justify-content-between small text-muted">
+                    <span>Contamination Hyperparameter:</span>
+                    <strong class="text-dark">2% (0.02)</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Anomaly Score Scatter / Profile Chart -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="modern-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold mb-0">Model Anomaly Score Distribution</h5>
+                    <small class="text-muted">Higher anomaly scores indicate higher isolation priority / extreme deviation</small>
+                </div>
+            </div>
+            <div style="height: 220px; position: relative;">
+                <canvas id="scoreChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Flagged Anomalies Table -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="modern-card">
+            <div class="p-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold mb-0 text-danger"><i class="bi bi-shield-exclamation me-2"></i>Critical Sensor Anomalies (Ranked by Score)</h5>
+                    <small class="text-muted">High anomaly score indicates anomalous multivariate sensor relationships</small>
+                </div>
+                <span class="badge bg-danger text-white px-3 py-2 rounded-pill">
+                    Showing Top {{ top_anomalies|length }} Anomalies
+                </span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Timestamp</th>
+                            <th>Temp (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Pressure (hPa)</th>
+                            <th>Wind (km/h)</th>
+                            <th>Rain (mm)</th>
+                            <th>Status</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in top_anomalies %}
+                        <tr class="table-danger-subtle">
+                            <td class="fw-bold text-muted">{{ forloop.counter }}</td>
+                            <td class="font-mono text-dark fw-semibold">{{ r.timestamp }}</td>
+                            <td><span class="badge {% if r.temp > 45 or r.temp < -20 %}bg-danger{% else %}bg-light text-dark border{% endif %}">{{ r.temp }}</span></td>
+                            <td><span class="badge {% if r.humidity > 100 or r.humidity < 0 %}bg-danger{% else %}bg-light text-dark border{% endif %}">{{ r.humidity }}</span></td>
+                            <td><span class="badge {% if r.pressure < 800 or r.pressure > 1100 %}bg-danger{% else %}bg-light text-dark border{% endif %}">{{ r.pressure }}</span></td>
+                            <td><span class="badge {% if r.wind > 120 %}bg-danger{% else %}bg-light text-dark border{% endif %}">{{ r.wind }}</span></td>
+                            <td>{{ r.rain }}</td>
+                            <td><span class="badge-anomaly"><i class="bi bi-exclamation-circle me-1"></i>ANOMALY</span></td>
+                            <td><strong class="text-danger font-mono">{{ r.score|floatformat:4 }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">
+                                <i class="bi bi-check2-circle text-success fs-4 d-block mb-2"></i>
+                                No anomalies found in this dataset. All observations are within normal sensor bounds.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Readings Preview Table -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="modern-card">
+            <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold mb-0">Telemetry Dataset Sample Preview</h5>
+                    <small class="text-muted">Displaying first 30 sequential readings from Automatic Weather Station</small>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom table-hover">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Temp (°C)</th>
+                            <th>Humidity (%)</th>
+                            <th>Pressure (hPa)</th>
+                            <th>Wind (km/h)</th>
+                            <th>Rain (mm)</th>
+                            <th>Condition</th>
+                            <th>Anomaly Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in recent_readings %}
+                        <tr>
+                            <td class="font-mono text-muted">{{ r.timestamp }}</td>
+                            <td class="fw-semibold">{{ r.temp }}</td>
+                            <td>{{ r.humidity }}%</td>
+                            <td>{{ r.pressure }}</td>
+                            <td>{{ r.wind }}</td>
+                            <td>{{ r.rain }}</td>
+                            <td>
+                                {% if r.is_anomaly %}
+                                    <span class="badge-anomaly">Anomaly</span>
+                                {% else %}
+                                    <span class="badge-normal">Normal</span>
+                                {% endif %}
+                            </td>
+                            <td class="font-mono">{{ r.score|floatformat:4 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if total_count > 0 %}
+<script>
+    const chartData = JSON.parse('{{ chart_data_json|escapejs }}');
+    
+    // Anomaly points mask for temperature
+    const normalPointColors = chartData.is_anomalies.map(isA => isA ? '#ef4444' : '#4361ee');
+    const pointRadii = chartData.is_anomalies.map(isA => isA ? 7 : 2);
+    const pointHoverRadii = chartData.is_anomalies.map(isA => isA ? 10 : 5);
+
+    // 1. Time Series Line Chart
+    const ctxTimeSeries = document.getElementById('timeSeriesChart').getContext('2d');
+    let currentMetric = 'temps';
+    let currentLabel = 'Temperature (°C)';
+    let currentColor = '#4361ee';
+
+    const tsConfig = {
+        type: 'line',
+        data: {
+            labels: chartData.timestamps,
+            datasets: [{
+                label: currentLabel,
+                data: chartData[currentMetric],
+                borderColor: currentColor,
+                backgroundColor: 'rgba(67, 97, 238, 0.08)',
+                borderWidth: 2,
+                pointBackgroundColor: normalPointColors,
+                pointBorderColor: normalPointColors,
+                pointRadius: pointRadii,
+                pointHoverRadius: pointHoverRadii,
+                fill: true,
+                tension: 0.25
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const idx = context.dataIndex;
+                            const isAnomaly = chartData.is_anomalies[idx];
+                            const score = chartData.scores[idx];
+                            return isAnomaly 
+                                ? `⚠️ ANOMALY DETECTED (Score: ${score})` 
+                                : `Normal (Score: ${score})`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 12, font: { family: "'JetBrains Mono', monospace", size: 10 } }
+                },
+                y: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { size: 11 } }
+                }
+            }
+        }
+    };
+
+    const timeSeriesChart = new Chart(ctxTimeSeries, tsConfig);
+
+    // Filter Buttons
+    function updateMetric(metricKey, label, color) {
+        timeSeriesChart.data.datasets[0].label = label;
+        timeSeriesChart.data.datasets[0].data = chartData[metricKey];
+        timeSeriesChart.data.datasets[0].borderColor = color;
+        timeSeriesChart.update();
+    }
+
+    document.getElementById('btnShowTemp').addEventListener('click', function() {
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        updateMetric('temps', 'Temperature (°C)', '#4361ee');
+    });
+
+    document.getElementById('btnShowHumidity').addEventListener('click', function() {
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        updateMetric('humidities', 'Humidity (%)', '#06b6d4');
+    });
+
+    document.getElementById('btnShowPressure').addEventListener('click', function() {
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        updateMetric('pressures', 'Pressure (hPa)', '#8b5cf6');
+    });
+
+    document.getElementById('btnShowWind').addEventListener('click', function() {
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        updateMetric('winds', 'Wind Speed (km/h)', '#f59e0b');
+    });
+
+    // 2. Doughnut Distribution Chart
+    const ctxDoughnut = document.getElementById('doughnutChart').getContext('2d');
+    new Chart(ctxDoughnut, {
+        type: 'doughnut',
+        data: {
+            labels: ['Normal Readings', 'Anomalies'],
+            datasets: [{
+                data: [{{ normal_count }}, {{ anomaly_count }}],
+                backgroundColor: ['#10b981', '#ef4444'],
+                hoverOffset: 6,
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            cutout: '72%'
+        }
+    });
+
+    // 3. Score Profile Bar/Line Chart
+    const ctxScore = document.getElementById('scoreChart').getContext('2d');
+    new Chart(ctxScore, {
+        type: 'line',
+        data: {
+            labels: chartData.timestamps,
+            datasets: [{
+                label: 'Anomaly Score',
+                data: chartData.scores,
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderWidth: 1.5,
+                pointRadius: pointRadii,
+                pointBackgroundColor: normalPointColors,
+                fill: true,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { maxTicksLimit: 12, font: { family: "'JetBrains Mono', monospace", size: 10 } }
+                },
+                y: {
+                    title: { display: true, text: 'Score (Higher = More Abnormal)' },
+                    grid: { color: '#f1f5f9' }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

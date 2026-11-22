@@ -1,0 +1,167 @@
+{% extends 'detector/base.html' %}
+
+{% block title %}About & Architecture - Weather Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        
+        <!-- Header Banner -->
+        <div class="modern-card p-4 p-md-5 mb-4 bg-white">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle mb-2 px-3 py-1 rounded-pill">
+                        Academic CA3 Project
+                    </span>
+                    <h2 class="fw-bold text-dark mb-2">ML-Based Weather Station Anomaly Detection</h2>
+                    <p class="text-muted leading-relaxed mb-3">
+                        An intelligent system designed to protect weather and agricultural monitoring networks from faulty sensors, physical damage, and environmental data corruption using modern unsupervised machine learning.
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-light text-secondary border">Python 3</span>
+                        <span class="badge bg-light text-secondary border">Django 6.1</span>
+                        <span class="badge bg-light text-secondary border">Scikit-Learn (Isolation Forest)</span>
+                        <span class="badge bg-light text-secondary border">Chart.js</span>
+                        <span class="badge bg-light text-secondary border">Bootstrap 5</span>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center mt-3 mt-md-0">
+                    <div class="p-4 bg-light rounded-4 border">
+                        <div class="display-4 text-primary mb-2"><i class="bi bi-cpu"></i></div>
+                        <h6 class="fw-bold mb-0">Unsupervised Learning</h6>
+                        <small class="text-muted">Zero manual thresholds</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project Methodology & Pipeline -->
+        <div class="modern-card p-4 p-md-5 mb-4">
+            <h4 class="fw-bold mb-4 text-dark"><i class="bi bi-diagram-3-fill me-2 text-primary"></i>End-to-End System Pipeline</h4>
+            
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-light h-100">
+                        <div class="badge bg-primary mb-2">Phase 1</div>
+                        <h5 class="fw-bold">Data Ingestion & Cleaning</h5>
+                        <p class="text-muted small">
+                            Historical hourly telemetry collected across 3 years (2023-2025) via the Open-Meteo API. Data is filtered to eliminate physically impossible extremes and split chronologically into training (history) and holdout (test) partitions.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-light h-100">
+                        <div class="badge bg-primary mb-2">Phase 2</div>
+                        <h5 class="fw-bold">Model Training & Scoring</h5>
+                        <p class="text-muted small">
+                            Trained with <code>StandardScaler</code> and an <code>Isolation Forest</code> of 200 decision trees. Anomalous instances are isolated close to tree roots with shorter path lengths, generating high anomaly scores.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="p-3 border rounded-3 bg-light h-100">
+                        <div class="badge bg-primary mb-2">Phase 3</div>
+                        <h5 class="fw-bold">Interactive Web Platform</h5>
+                        <p class="text-muted small">
+                            A clean Django interface enabling operators to upload datasets, review interactive Chart.js time-series plots, inspect anomaly rankings, and conduct real-time single-sample sensor simulations.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Architecture Breakdown Table -->
+        <div class="modern-card p-4 p-md-5 mb-4">
+            <h4 class="fw-bold mb-3 text-dark"><i class="bi bi-table me-2 text-primary"></i>Model Architecture & Hyperparameters</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-custom">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Component</th>
+                            <th>Configuration / Value</th>
+                            <th>Engineering Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold">Algorithm</td>
+                            <td><code>Isolation Forest (iForest)</code></td>
+                            <td>Unsupervised anomaly detection without needing labeled ground-truth data.</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Feature Set</td>
+                            <td><code>temp, humidity, pressure, wind, rain</code></td>
+                            <td>Captures multi-dimensional correlations across all meteorological sensors.</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Feature Normalization</td>
+                            <td><code>StandardScaler</code> (Zero mean, unit variance)</td>
+                            <td>Ensures distance metrics and tree partitions treat each sensor dimension equitably.</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Ensemble Estimators</td>
+                            <td><code>200 Trees</code></td>
+                            <td>Ensures stable average path length calculations and mitigates random split variance.</td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Contamination Rate</td>
+                            <td><code>0.02 (2%)</code></td>
+                            <td>Calibrated expected outlier proportion in historical climate station data.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- College Presentation Notes -->
+        <div class="modern-card p-4 p-md-5 mb-4 border-primary">
+            <h4 class="fw-bold mb-3 text-primary"><i class="bi bi-mortarboard-fill me-2"></i>Key Talking Points for Viva & Professor Evaluation</h4>
+            <div class="accordion" id="vivaAccordion">
+                
+                <div class="accordion-item border-0 mb-2 rounded-3 overflow-hidden shadow-sm">
+                    <h2 class="accordion-header" id="headingOne">
+                        <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                            1. Why Isolation Forest instead of simple threshold checks (e.g. Temp > 45°C)?
+                        </button>
+                    </h2>
+                    <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#vivaAccordion">
+                        <div class="accordion-body text-muted">
+                            Fixed thresholds cannot detect multi-sensor inconsistencies. For example, a reading of <strong>Temperature = 35°C</strong>, <strong>Relative Humidity = 99%</strong>, and <strong>Barometric Pressure = 850 hPa</strong> with no rain represents a physically suspect anomaly even though every individual measurement falls within its standard individual bounds. Isolation Forest analyzes all dimensions concurrently.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-0 mb-2 rounded-3 overflow-hidden shadow-sm">
+                    <h2 class="accordion-header" id="headingTwo">
+                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                            2. How does the Django web application integrate with the ML layer?
+                        </button>
+                    </h2>
+                    <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#vivaAccordion">
+                        <div class="accordion-body text-muted">
+                            The Django application acts as a presentation and management tier. It cleanly imports the existing ML model wrapper without modifying any core model code. User-uploaded CSV datasets are validated, passed to the model inference function, and the returned predictions and anomaly scores are stored in SQLite and presented through Chart.js visualizations.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item border-0 rounded-3 overflow-hidden shadow-sm">
+                    <h2 class="accordion-header" id="headingThree">
+                        <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                            3. What is the significance of the anomaly score?
+                        </button>
+                    </h2>
+                    <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#vivaAccordion">
+                        <div class="accordion-body text-muted">
+                            The anomaly score provides a continuous measurement of how isolated a data point is in tree space. Instead of a binary yes/no, operators can prioritize investigation based on severity, sorting and addressing extreme sensor failures first.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

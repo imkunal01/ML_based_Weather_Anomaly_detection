@@ -1,0 +1,190 @@
+{% extends 'detector/base.html' %}
+
+{% block title %}Live Sensor Simulator - Weather Anomaly Detection{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-9">
+        <div class="mb-4 text-center">
+            <h2 class="fw-bold text-dark">Interactive Sensor Simulator</h2>
+            <p class="text-muted">Test individual custom sensor readings in real-time against the trained ML model</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-12 col-md-6">
+                <div class="modern-card p-4 h-100">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-sliders2 me-2 text-primary"></i>Enter Sensor Telemetry</h5>
+                    <form method="post" id="simulatorForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Reading Timestamp</label>
+                            <input type="text" name="timestamp" id="inputTimestamp" class="form-control font-mono" value="2026-11-22 12:00:00">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted d-flex justify-content-between">
+                                <span>Temperature (°C)</span>
+                                <span id="tempVal" class="fw-bold text-primary">24.5 °C</span>
+                            </label>
+                            <input type="range" class="form-range" name="temp" id="tempRange" min="-30" max="90" step="0.5" value="24.5">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted d-flex justify-content-between">
+                                <span>Relative Humidity (%)</span>
+                                <span id="humidityVal" class="fw-bold text-primary">62 %</span>
+                            </label>
+                            <input type="range" class="form-range" name="humidity" id="humidityRange" min="0" max="160" step="1" value="62">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted d-flex justify-content-between">
+                                <span>Atmospheric Pressure (hPa)</span>
+                                <span id="pressureVal" class="fw-bold text-primary">1013 hPa</span>
+                            </label>
+                            <input type="range" class="form-range" name="pressure" id="pressureRange" min="0" max="1200" step="5" value="1013">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted d-flex justify-content-between">
+                                <span>Wind Speed (km/h)</span>
+                                <span id="windVal" class="fw-bold text-primary">14 km/h</span>
+                            </label>
+                            <input type="range" class="form-range" name="wind" id="windRange" min="0" max="180" step="1" value="14">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted d-flex justify-content-between">
+                                <span>Precipitation (mm)</span>
+                                <span id="rainVal" class="fw-bold text-primary">0.0 mm</span>
+                            </label>
+                            <input type="range" class="form-range" name="rain" id="rainRange" min="0" max="150" step="0.5" value="0.0">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-muted">Model Evaluation Engine</label>
+                            <select name="model_choice" class="form-select">
+                                <option value="iforest" selected>Isolation Forest (Trained Model)</option>
+                                <option value="lstm">LSTM Sequence Drift</option>
+                            </select>
+                        </div>
+
+                        <!-- Presets for fast demonstration -->
+                        <div class="mb-3">
+                            <label class="small text-muted fw-bold d-block mb-1">Quick Presets for Viva/Demo:</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-xs btn-outline-success btn-sm" onclick="setPreset(25, 60, 1013, 12, 0)">Normal Day</button>
+                                <button type="button" class="btn btn-xs btn-outline-danger btn-sm" onclick="setPreset(85, 30, 1010, 15, 0)">Heat Spike (85°C)</button>
+                                <button type="button" class="btn btn-xs btn-outline-danger btn-sm" onclick="setPreset(22, 50, 0, 10, 0)">Dead Pressure (0 hPa)</button>
+                                <button type="button" class="btn btn-xs btn-outline-danger btn-sm" onclick="setPreset(28, 150, 1012, 5, 20)">Impossible Humidity (150%)</button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-modern-primary w-100 py-2">
+                            <i class="bi bi-cpu me-2"></i>Evaluate Reading
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Result Display Column -->
+            <div class="col-12 col-md-6">
+                <div class="modern-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <h5 class="fw-bold mb-3"><i class="bi bi-speedometer2 me-2 text-primary"></i>Classification Output</h5>
+                        
+                        {% if result %}
+                            <div class="p-4 rounded-4 text-center mb-4 {% if result.is_anomaly %}bg-danger-subtle border border-danger{% else %}bg-success-subtle border border-success{% endif %}">
+                                {% if result.is_anomaly %}
+                                    <div class="display-5 text-danger mb-2"><i class="bi bi-exclamation-octagon-fill"></i></div>
+                                    <h3 class="fw-bold text-danger mb-1">ANOMALY DETECTED</h3>
+                                    <p class="text-danger small mb-0">The reading deviates significantly from normal historical weather patterns.</p>
+                                {% else %}
+                                    <div class="display-5 text-success mb-2"><i class="bi bi-check-circle-fill"></i></div>
+                                    <h3 class="fw-bold text-success mb-1">NORMAL READING</h3>
+                                    <p class="text-success small mb-0">The reading falls safely within legitimate multi-sensor distributions.</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="border rounded-3 p-3 bg-light">
+                                <h6 class="fw-bold mb-2">Detailed Telemetry Output:</h6>
+                                <div class="d-flex justify-content-between py-1 border-bottom small">
+                                    <span class="text-muted">Model Used:</span>
+                                    <strong>{{ result.model }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between py-1 border-bottom small">
+                                    <span class="text-muted">Anomaly Score:</span>
+                                    <strong class="{% if result.is_anomaly %}text-danger{% else %}text-success{% endif %} font-mono">{{ result.score }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between py-1 border-bottom small">
+                                    <span class="text-muted">Temperature:</span>
+                                    <span>{{ result.temp }} °C</span>
+                                </div>
+                                <div class="d-flex justify-content-between py-1 border-bottom small">
+                                    <span class="text-muted">Relative Humidity:</span>
+                                    <span>{{ result.humidity }} %</span>
+                                </div>
+                                <div class="d-flex justify-content-between py-1 border-bottom small">
+                                    <span class="text-muted">Barometric Pressure:</span>
+                                    <span>{{ result.pressure }} hPa</span>
+                                </div>
+                                <div class="d-flex justify-content-between py-1 border-bottom small">
+                                    <span class="text-muted">Wind Velocity:</span>
+                                    <span>{{ result.wind }} km/h</span>
+                                </div>
+                                <div class="d-flex justify-content-between py-1 small">
+                                    <span class="text-muted">Rainfall:</span>
+                                    <span>{{ result.rain }} mm</span>
+                                </div>
+                            </div>
+
+                        {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-sliders text-secondary display-4 d-block mb-3"></i>
+                                <h6 class="fw-bold">Ready to Simulate</h6>
+                                <p class="small">Adjust the sliders on the left or click one of the quick presets, then click <strong>Evaluate Reading</strong>.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="small text-muted border-top pt-3 mt-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        The model evaluates correlations across all 5 sensors simultaneously, catching anomalies even when each single metric appears borderline acceptable.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const tempRange = document.getElementById('tempRange');
+    const humidityRange = document.getElementById('humidityRange');
+    const pressureRange = document.getElementById('pressureRange');
+    const windRange = document.getElementById('windRange');
+    const rainRange = document.getElementById('rainRange');
+
+    tempRange.addEventListener('input', (e) => document.getElementById('tempVal').innerText = `${e.target.value} °C`);
+    humidityRange.addEventListener('input', (e) => document.getElementById('humidityVal').innerText = `${e.target.value} %`);
+    pressureRange.addEventListener('input', (e) => document.getElementById('pressureVal').innerText = `${e.target.value} hPa`);
+    windRange.addEventListener('input', (e) => document.getElementById('windVal').innerText = `${e.target.value} km/h`);
+    rainRange.addEventListener('input', (e) => document.getElementById('rainVal').innerText = `${e.target.value} mm`);
+
+    function setPreset(temp, hum, press, wind, rain) {
+        tempRange.value = temp;
+        document.getElementById('tempVal').innerText = `${temp} °C`;
+        humidityRange.value = hum;
+        document.getElementById('humidityVal').innerText = `${hum} %`;
+        pressureRange.value = press;
+        document.getElementById('pressureVal').innerText = `${press} hPa`;
+        windRange.value = wind;
+        document.getElementById('windVal').innerText = `${wind} km/h`;
+        rainRange.value = rain;
+        document.getElementById('rainVal').innerText = `${rain} mm`;
+    }
+</script>
+{% endblock %}

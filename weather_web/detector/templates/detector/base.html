@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Weather Anomaly Detection{% endblock %} - CA3 Group Project</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-rgb: 67, 97, 238;
+            --secondary: #3f37c9;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-rgb: 239, 68, 68;
+            --dark: #0f172a;
+            --card-bg: #ffffff;
+            --body-bg: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--body-bg);
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Modern Glass Navbar */
+        .navbar-custom {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.85rem 1.5rem;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: var(--dark) !important;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #4361ee, #4cc9f0);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+        }
+
+        .nav-link {
+            font-weight: 500;
+            color: #475569;
+            padding: 0.5rem 0.9rem !important;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary) !important;
+            background-color: rgba(67, 97, 238, 0.08);
+        }
+
+        /* Modern Cards */
+        .modern-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card {
+            padding: 1.4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .stat-val {
+            font-size: 1.85rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-top: 0.4rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Anomaly Badge */
+        .badge-anomaly {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+            font-weight: 600;
+            padding: 0.35rem 0.65rem;
+            border-radius: 20px;
+        }
+
+        .badge-normal {
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+            font-weight: 600;
+            padding: 0.35rem 0.65rem;
+            border-radius: 20px;
+        }
+
+        /* Modern Table */
+        .table-custom {
+            margin-bottom: 0;
+        }
+        .table-custom th {
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background-color: #f8fafc;
+            border-top: none;
+            padding: 0.9rem 1rem;
+        }
+        .table-custom td {
+            vertical-align: middle;
+            padding: 0.85rem 1rem;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Modern Button Styles */
+        .btn-modern-primary {
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
+            color: white;
+            border: none;
+            font-weight: 600;
+            padding: 0.65rem 1.4rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(67, 97, 238, 0.35);
+            transition: all 0.2s;
+        }
+        .btn-modern-primary:hover {
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(67, 97, 238, 0.45);
+        }
+
+        /* Code/Mono */
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        footer {
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+            background: #ffffff;
+            padding: 1.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
+        <div class="container-fluid px-lg-4">
+            <a class="navbar-brand" href="{% url 'dashboard' %}">
+                <div class="brand-icon">
+                    <i class="bi bi-cloud-lightning-rain-fill"></i>
+                </div>
+                <div>
+                    <div>WeatherSense AI</div>
+                    <small style="font-size: 0.7rem; font-weight: 500; color: #64748b; display: block; line-height: 1;">CA3 Anomaly Detection System</small>
+                </div>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navMenu">
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0 gap-1">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                            <i class="bi bi-grid-fill me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'upload' %}active{% endif %}" href="{% url 'upload' %}">
+                            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload Dataset
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'single_predict' %}active{% endif %}" href="{% url 'single_predict' %}">
+                            <i class="bi bi-sliders me-1"></i> Live Simulator
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}" href="{% url 'about' %}">
+                            <i class="bi bi-info-circle-fill me-1"></i> About & Architecture
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container-fluid px-lg-4 py-4">
+        <!-- Toast / Alerts -->
+        {% if messages %}
+            <div class="row">
+                <div class="col-12">
+                    {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show modern-card border-0 shadow-sm" role="alert">
+                            <i class="bi {% if message.tags == 'error' %}bi-exclamation-triangle-fill{% else %}bi-check-circle-fill{% endif %} me-2"></i>
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container-fluid px-lg-4 text-center">
+            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                <div class="text-start">
+                    <span class="fw-bold text-dark">ML Weather Anomaly Detection System</span> — College Project (CA3 Group)
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="badge bg-light text-secondary border">Django 6.1</span>
+                    <span class="badge bg-light text-secondary border">Isolation Forest</span>
+                    <span class="badge bg-light text-secondary border">Chart.js</span>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>Pipeline Active</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
